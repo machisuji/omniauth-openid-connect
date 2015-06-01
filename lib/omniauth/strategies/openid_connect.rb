@@ -58,7 +58,10 @@ module OmniAuth
       end
 
       extra do
-        {raw_info: user_info.raw_attributes}
+        compact_hash({
+          raw_info: user_info.raw_attributes,
+          session_state: session_state
+        })
       end
 
       credentials do
@@ -86,6 +89,8 @@ module OmniAuth
       end
 
       def callback_phase
+        @session_state = request.params['session_state']
+
         error = request.params['error_reason'] || request.params['error']
         if error
           raise CallbackError.new(request.params['error'], request.params['error_description'] || request.params['error_reason'], request.params['error_uri'])
@@ -114,6 +119,10 @@ module OmniAuth
         request.params["code"]
       end
 
+      def session_state
+        @session_state
+      end
+
       def authorize_uri
         client.redirect_uri = client_options.redirect_uri
         opts = {
@@ -122,7 +131,7 @@ module OmniAuth
             state: new_state,
             nonce: (new_nonce if options.send_nonce),
         }
-        client.authorization_uri(opts.reject{|k,v| v.nil?})
+        client.authorization_uri(compact_hash(opts))
       end
 
       def public_key
@@ -134,6 +143,10 @@ module OmniAuth
       end
 
       private
+
+      def compact_hash(hash)
+        hash.reject { |_, value| value.nil? }
+      end
 
       def issuer
         resource = "#{client_options.scheme}://#{client_options.host}" + ((client_options.port) ? ":#{client_options.port.to_s}" : '')
